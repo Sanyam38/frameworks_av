@@ -18,13 +18,12 @@
 #ifndef ANDROID_AUDIO_POLICY_H
 #define ANDROID_AUDIO_POLICY_H
 
-#include <binder/Parcel.h>
-#include <media/AudioDeviceTypeAddr.h>
 #include <system/audio.h>
 #include <system/audio_policy.h>
+#include <binder/Parcel.h>
 #include <utils/String8.h>
 #include <utils/Vector.h>
-#include <cutils/multiuser.h>
+#include <media/AudioSession.h>
 
 namespace android {
 
@@ -33,12 +32,10 @@ namespace android {
 #define RULE_MATCH_ATTRIBUTE_USAGE           0x1
 #define RULE_MATCH_ATTRIBUTE_CAPTURE_PRESET (0x1 << 1)
 #define RULE_MATCH_UID                      (0x1 << 2)
-#define RULE_MATCH_USERID                   (0x1 << 3)
 #define RULE_EXCLUDE_ATTRIBUTE_USAGE  (RULE_EXCLUSION_MASK|RULE_MATCH_ATTRIBUTE_USAGE)
 #define RULE_EXCLUDE_ATTRIBUTE_CAPTURE_PRESET \
                                       (RULE_EXCLUSION_MASK|RULE_MATCH_ATTRIBUTE_CAPTURE_PRESET)
 #define RULE_EXCLUDE_UID              (RULE_EXCLUSION_MASK|RULE_MATCH_UID)
-#define RULE_EXCLUDE_USERID           (RULE_EXCLUSION_MASK|RULE_MATCH_USERID)
 
 #define MIX_TYPE_INVALID (-1)
 #define MIX_TYPE_PLAYERS 0
@@ -48,6 +45,7 @@ namespace android {
 //   AudioSystem's implementation of the AudioPolicyClient interface
 // keep in sync with AudioSystem.java
 #define DYNAMIC_POLICY_EVENT_MIX_STATE_UPDATE 0
+#define AUDIO_OUTPUT_SESSION_EFFECTS_UPDATE 10
 
 #define MIX_STATE_DISABLED (-1)
 #define MIX_STATE_IDLE 0
@@ -64,6 +62,19 @@ namespace android {
 #define MAX_MIXES_PER_POLICY 10
 #define MAX_CRITERIA_PER_MIX 20
 
+class AudioDeviceTypeAddr {
+public:
+    AudioDeviceTypeAddr() {}
+    AudioDeviceTypeAddr(audio_devices_t type, String8 address) :
+        mType(type), mAddress(address) {}
+
+    status_t readFromParcel(Parcel *parcel);
+    status_t writeToParcel(Parcel *parcel) const;
+
+    audio_devices_t mType;
+    String8 mAddress;
+};
+
 class AudioMixMatchCriterion {
 public:
     AudioMixMatchCriterion() {}
@@ -76,7 +87,6 @@ public:
         audio_usage_t   mUsage;
         audio_source_t  mSource;
         uid_t           mUid;
-        int        mUserId;
     } mValue;
     uint32_t        mRule;
 };
@@ -102,13 +112,6 @@ public:
     bool hasUidRule(bool match, uid_t uid) const;
     /** returns true if this mix has a rule for uid match (any uid) */
     bool hasMatchUidRule() const;
-
-    void setExcludeUserId(int userId) const;
-    void setMatchUserId(int userId) const;
-    /** returns true if this mix has a rule to match or exclude the given userId */
-    bool hasUserIdRule(bool match, int userId) const;
-    /** returns true if this mix has a rule for userId match (any userId) */
-    bool hasMatchUserIdRule() const;
     /** returns true if this mix can be used for uid-device affinity routing */
     bool isDeviceAffinityCompatible() const;
 
@@ -121,8 +124,6 @@ public:
     uint32_t        mCbFlags; // flags indicating which callbacks to use, see kCbFlag*
     /** Ignore the AUDIO_FLAG_NO_MEDIA_PROJECTION */
     bool            mAllowPrivilegedPlaybackCapture = false;
-    /** Indicates if the caller can capture voice communication output */
-    bool            mVoiceCommunicationCaptureAllowed = false;
 };
 
 
